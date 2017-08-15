@@ -1,0 +1,250 @@
+;; gorilla-repl.fileformat = 1
+
+;; **
+;;; # Gorilla REPL
+;;; 
+;;; Welcome to gorilla :-)
+;;; 
+;;; Shift + enter evaluates code. Hit alt+g twice in quick succession or click the menu icon (upper-right corner) for more commands ...
+;;; 
+;;; It's a good habit to run each worksheet in its own namespace: feel free to use the declaration we've provided below if you'd like.
+;; **
+
+;; @@
+(ns pleasant-marsh
+  (:require [gorilla-plot.core :as plot]
+            [keychain.exchange.gdax :as gdax]
+            [clojure.core.async :as a]))
+;; @@
+
+;; @@
+(def gdax-subscription (gdax/subscribe ["ETH-USD" "ETH-BTC" "BTC-USD"]))
+;; @@
+
+;; @@
+(def feed (:feed gdax-subscription))
+;; @@
+
+;; @@
+(a/poll! feed)
+;; @@
+
+;; @@
+(def book (atom {}))
+;; @@
+
+;; @@
+(defn add-entry [book {:keys [product_id order_id] :as entry}]
+  (cond 
+    (= "match" (:type entry)) (swap! book update-in [product_id :matches] #(conj % entry))
+    :else      (swap! book update-in [product_id order_id] #(conj % entry))))
+;; @@
+
+;; @@
+(a/go-loop 
+  [x (a/<! feed)]
+  (when x
+    (add-entry book x)
+    (recur (a/<! feed))))
+;; @@
+
+;; @@
+(-> @book second val reverse clojure.pprint/pprint)
+;; @@
+
+;; @@
+(keys  @book)
+
+{:ETH-USD (-> @book (get "ETH-USD") count)
+ :ETH-BTC (-> @book (get "ETH-BTC") count)}
+;; @@
+
+;; @@
+(defn calc-pct-canceled [book product]
+  (->> (get book product)
+       (map val)
+       (map first)
+       (filter #(= "canceled" (:reason %)))
+       (map :order_id)
+       (into #{})
+       (count)
+       (#(double (* 100 (/ % (count (get book product))))))))
+
+(def snap @book)
+
+
+(clojure.pprint/pprint
+{:ETH-BTC {:canceled (calc-pct-canceled snap "ETH-BTC")
+           :total (-> snap (get "ETH-BTC") count)}
+ :ETH-USD {:canceled (calc-pct-canceled snap "ETH-USD")
+           :total (-> snap (get "ETH-USD") count)}
+ :BTC-USD {:canceled (calc-pct-canceled snap "BTC-USD")
+           :total (-> snap (get "BTC-USD") count)}})
+;; @@
+
+;; @@
+(defn percentage-filled
+  [book]
+  (->> book
+       (map val)
+       flatten
+       (filter #(= "filled" (:reason %)))
+       (map :order_id)
+       (into #{})
+       (count)
+       (#(double (* 100 (/ % (count book)))))))
+;; @@
+
+;; @@
+(defn percentage-done
+  [book]
+  (->> book
+       (map val)
+       flatten
+       (filter #(= "done" (:type %)))
+       (map :order_id)
+       (into #{})
+       (count)
+       (#(double (* 100 (/ % (count book)))))))
+;; @@
+
+;; @@
+(defn percentage-open
+  [book]
+  (->> book
+       (map val)
+       (map first)
+       flatten 
+       (filter #(= "open" (:type %)))
+       (map :order_id)
+       (into #{})
+       (count)
+       (#(double (* 100 (/ % (count book)))))))
+;; @@
+
+;; @@
+(defn percentage-received
+  [book]
+  (->> book
+       (map val)
+       (map first)
+       flatten 
+       (filter #(= "received" (:type %)))
+       (map :order_id)
+       (into #{})
+       (count)
+       (#(double (* 100 (/ % (count book)))))))
+;; @@
+
+;; @@
+(defn percentage-match
+  [book]
+  (->> book
+       (map val)
+       (map first)
+       flatten 
+       (filter #(= "match" (:type %)))
+       (map :maker_order_id)
+       (into #{})
+       (count)
+       (#(double (* 100 (/ % (count book)))))))
+;; @@
+
+;; @@
+(defn percentage-change
+  [book]
+  (->> book
+       (map val)
+       (map first)
+       flatten 
+       (filter #(= "change" (:type %)))
+       (map :order_id)
+       (into #{})
+       (count)
+       (#(double (* 100 (/ % (count book)))))))
+;; @@
+
+;; @@
+(def snapshot @book)
+
+(clojure.pprint/pprint
+{:received (percentage-received snapshot)
+ :open (percentage-open snapshot)
+ :match (percentage-match snapshot)
+ :change (percentage-change snapshot)
+ :done {:canceled (percentage-canceled snapshot)
+        :filled (percentage-filled snapshot)}})
+;; @@
+
+;; @@
+ (pmap 
+  #(apply % [@book]) 
+  [percentage-received 
+   percentage-open 
+   percentage-match 
+   percentage-change 
+   percentage-canceled 
+   percentage-filled])
+;; @@
+
+;; @@
+(defn get-limit-order-book
+  [book]
+  (->> book
+       (map val)
+       flatten
+       (filter #(= "limit" (:order_type %)))
+       (map :order_id)
+       (#(select-keys book %))))
+;; @@
+
+;; @@
+(defn get-market-order-book
+  [book]
+  (->> book 
+       (map val)
+       flatten
+       (filter #(= "market" (:order_type %)))
+       (map :order_id)
+       (#(select-keys book %))))
+;; @@
+
+;; @@
+(def lob (get-limit-order-book snapshot))
+;; @@
+
+;; @@
+(def mean
+(->> lob 
+     (map val) 
+     flatten 
+     (filter #(= "received" (:type %))) 
+     (map :price) 
+     (map read-string) 
+     (reduce +) 
+     (#(/ % (count lob)))))
+;; @@
+
+;; @@
+(->> lob
+     (map val)
+     flatten
+     (filter #(= "received" (:type %)))
+     (map :price)
+     (map read-string)
+     (map #(* (- % mean) (- % mean)))
+     (reduce +)
+     (#(/ % (count lob))))
+;; @@
+
+;; @@
+
+;; @@
+
+;; @@
+((:stop gdax-subscription))
+;; @@
+
+;; @@
+
+;; @@
