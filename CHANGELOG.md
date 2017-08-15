@@ -5,4 +5,5 @@ All notable changes to this project will be documented in this file. This change
 
 ### 08/15/16
 - Setup the repository
-- Added GDAX production subscription functionality. 
+- Added GDAX production subscription functionality.
+- Added number parsing for various GDAX entry events with tests.
