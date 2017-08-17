@@ -3,6 +3,10 @@
             [clojure.data.json :as json]
             [clojure.core.async :as a]))
 
+;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Websocket Feed ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defn ->json [x] (json/write-str x :key-fn name))
 
 (defn json->edn [x] (json/read-str x :key-fn keyword))
@@ -83,7 +87,11 @@
 
 (defn get-orders
   [snapshot product filter-fn]
-  (filter filter-fn (get snapshot product)))
+  (into {} (filter filter-fn (get snapshot product))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Snapshot Operations ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn open?
   [order]
@@ -97,17 +105,25 @@
   [order]
   (= "sell" (-> order val first :side)))
 
+(defn open-x-order?*
+  "General predicate for open sell/buy order"
+  [pred-fn order]
+  (and (open? order)
+       (pred-fn order)))
+
+(def open-buy-order?
+  (partial open-x-order?* buy?))
+
+(def open-sell-order?
+  (partial open-x-order?* sell?))
+
 (defn B
   "Open bid limit orders."
   [snapshot product]
   (->> (get-orders
          snapshot
          product
-         (fn [order]
-           (and
-             (open? order)
-             (buy? order))))
-       (into {})))
+         open-buy-order?)))
 
 (defn A
   "Open ask limit orders."
@@ -115,18 +131,18 @@
   (->> (get-orders
          snapshot
          product
-         (fn [order]
-           (and
-             (open? order)
-             (sell? order))))
-       (into {})))
+         open-sell-order?)))
+
+(defn get-price
+  [order]
+  (->> order
+       val
+       first
+       :price))
 
 (defn get-prices
   [orders]
-  (->> orders
-       (map val)
-       (map first)
-       (map :price)))
+  (map get-price orders))
 
 (defn b
   "Current bid price."
@@ -154,9 +170,9 @@
 
 (defn nxpt*
   "General function for nbpt and napt."
-  [side-fn snapshot produce price]
+  [side-fn snapshot product price]
   (->> (side-fn snapshot product)
-       (filter #(= price (-> % val first :price)))
+       (filter #(= price (get-price %)))
        (map val)
        (map first)
        (map #(or (:size %) (:remaining_size %)))
@@ -189,4 +205,4 @@
 (defn napt-profile
   "Current ask-side depth profile for a given snapshot."
   [snapshot product]
-  (nxpt-profile* A snapshot product)))
+  (nxpt-profile* A snapshot product))

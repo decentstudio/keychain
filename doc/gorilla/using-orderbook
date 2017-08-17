@@ -16,131 +16,26 @@
             [keychain.exchange.gdax :as gdax]
             [clojure.core.async :as a]))
 ;; @@
+;; =>
+;;; {"type":"html","content":"<span class='clj-nil'>nil</span>","value":"nil"}
+;; <=
 
 ;; @@
 (def obook (gdax/create-realtime-orderbook ["ETH-USD"]))
 ;; @@
+;; =>
+;;; {"type":"html","content":"<span class='clj-var'>#&#x27;merciful-desert/obook</span>","value":"#'merciful-desert/obook"}
+;; <=
 
 ;; @@
 (def book (:book obook))
 ;; @@
+;; =>
+;;; {"type":"html","content":"<span class='clj-var'>#&#x27;merciful-desert/book</span>","value":"#'merciful-desert/book"}
+;; <=
 
 ;; @@
 ((:stop obook))
-;; @@
-
-;; @@
-(count (gdax/get-orders @book "ETH-USD" identity))
-
-(def get-orders gdax/get-orders)
-;; @@
-
-;; @@
-(defn open? 
-  [order]
-  (= "open" (-> order val first :type)))
-
-(defn buy?
-  [order]
-  (= "buy" (-> order val first :side)))
-
-(defn sell?
-  [order]
-  (= "sell" (-> order val first :side)))
-
-(defn B
-  "Open bid limit orders."
-  [snapshot product]
-  (->> (get-orders 
-         snapshot 
-         product
-         (fn [order]
-           (and
-             (open? order)
-             (buy? order))))
-       (into {})))
-
-(defn A
-  "Open ask limit orders."
-  [snapshot product]
-  (->> (get-orders
-         snapshot
-         product
-         (fn [order]
-           (and
-             (open? order)
-             (sell? order))))
-       (into {})))
-
-(defn get-prices
-  [orders]
-  (->> orders 
-       (map val)
-       (map first)
-       (map :price)))
-
-(defn b
-  "Current bid price."
-  [snapshot product]
-  (->> (B snapshot product)
-       (get-prices)
-       (apply max)))
-
-(defn a
-  "Current ask price."
-  [snapshot product]
-  (->> (A snapshot product)
-       (get-prices)
-       (apply min)))
-
-(defn s
-  "Current bid-ask spread."
-  [snapshot product]
-  (- (a snapshot product) (b snapshot product)))
-
-(defn m
-  "Current mid price."
-  [snapshot product]
-  (/ (+ (a snapshot product) (b snapshot product)) 2))
-
-(defn nxpt*
-  "General function for nbpt and napt."
-  [side-fn snapshot produce price]
-  (->> (side-fn snapshot product)
-       (filter #(= price (-> % val first :price)))
-       (map val)
-       (map first)
-       (map #(or (:size %) (:remaining_size %)))
-       (reduce +)))
-
-(defn nbpt
-  "Current bid-side depth at a given price."
-  [snapshot product price]
-  (nxpt* B snapshot product price))
-
-(defn napt
-  "Current ask-side depth at a given price."
-  [snapshot product price]
-  (nxpt* A snapshot product price))
-
-(defn nxpt-profile*
-  "General function for nbpt-profile and napt-profile."
-  [side-fn snapshot product]
-  (->> (side-fn snapshot product)
-       (get-prices)
-       (into #{})
-       (pmap (fn [p] {p (nxpt* side-fn snapshot product p)}))
-       (reduce merge)))
-
-(defn nbpt-profile
-  "Current bid-side depth profile for a given snapshot."
-  [snapshot product]
-  (nxpt-profile* B snapshot product))
-
-(defn napt-profile
-  "Current ask-side depth profile for a given snapshot."
-  [snapshot product]
-  (nxpt-profile* A snapshot product))
 ;; @@
 
 ;; @@
@@ -148,10 +43,29 @@
 (def product "ETH-USD")
 
 (clojure.pprint/pprint
-{:bid-count (count (B snap product))
- :ask-count (count (A snap product))
- :bid (b snap product)
- :ask (a snap product)
- :spread (s snap product)
- :mid (m snap product)})
+{:bid-count (count (gdax/B snap product))
+ :ask-count (count (gdax/A snap product))
+ :bid (gdax/b snap product)
+ :ask (gdax/a snap product)
+ :spread (gdax/s snap product)
+ :mid (gdax/m snap product)})
 ;; @@
+;; ->
+;;; {:bid-count 67,
+;;;  :ask-count 87,
+;;;  :bid 298.93,
+;;;  :ask 298.94,
+;;;  :spread 0.009999999999990905,
+;;;  :mid 298.935}
+;;; 
+;; <-
+;; =>
+;;; {"type":"html","content":"<span class='clj-nil'>nil</span>","value":"nil"}
+;; <=
+
+;; @@
+(gdax/nbpt-profile snap product)
+;; @@
+;; =>
+;;; {"type":"list-like","open":"<span class='clj-map'>{</span>","close":"<span class='clj-map'>}</span>","separator":", ","items":[{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>296.0</span>","value":"296.0"},{"type":"html","content":"<span class='clj-double'>3.8</span>","value":"3.8"}],"value":"[296.0 3.8]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>265.0</span>","value":"265.0"},{"type":"html","content":"<span class='clj-double'>1.0</span>","value":"1.0"}],"value":"[265.0 1.0]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>298.7</span>","value":"298.7"},{"type":"html","content":"<span class='clj-double'>0.12000000000000001</span>","value":"0.12000000000000001"}],"value":"[298.7 0.12000000000000001]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>295.65</span>","value":"295.65"},{"type":"html","content":"<span class='clj-double'>6.0</span>","value":"6.0"}],"value":"[295.65 6.0]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>298.0</span>","value":"298.0"},{"type":"html","content":"<span class='clj-double'>18.41</span>","value":"18.41"}],"value":"[298.0 18.41]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>298.5</span>","value":"298.5"},{"type":"html","content":"<span class='clj-double'>0.01</span>","value":"0.01"}],"value":"[298.5 0.01]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>298.4</span>","value":"298.4"},{"type":"html","content":"<span class='clj-double'>0.05086591</span>","value":"0.05086591"}],"value":"[298.4 0.05086591]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>292.25</span>","value":"292.25"},{"type":"html","content":"<span class='clj-double'>0.05</span>","value":"0.05"}],"value":"[292.25 0.05]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>295.7</span>","value":"295.7"},{"type":"html","content":"<span class='clj-double'>4.1661</span>","value":"4.1661"}],"value":"[295.7 4.1661]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>270.0</span>","value":"270.0"},{"type":"html","content":"<span class='clj-double'>1.5</span>","value":"1.5"}],"value":"[270.0 1.5]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>296.65</span>","value":"296.65"},{"type":"html","content":"<span class='clj-double'>2.0981</span>","value":"2.0981"}],"value":"[296.65 2.0981]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>297.9</span>","value":"297.9"},{"type":"html","content":"<span class='clj-double'>0.04</span>","value":"0.04"}],"value":"[297.9 0.04]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>297.3</span>","value":"297.3"},{"type":"html","content":"<span class='clj-double'>12.041</span>","value":"12.041"}],"value":"[297.3 12.041]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>298.8</span>","value":"298.8"},{"type":"html","content":"<span class='clj-double'>0.02</span>","value":"0.02"}],"value":"[298.8 0.02]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>291.55</span>","value":"291.55"},{"type":"html","content":"<span class='clj-double'>6.778</span>","value":"6.778"}],"value":"[291.55 6.778]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>296.35</span>","value":"296.35"},{"type":"html","content":"<span class='clj-double'>6.0</span>","value":"6.0"}],"value":"[296.35 6.0]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>298.85</span>","value":"298.85"},{"type":"html","content":"<span class='clj-double'>0.05</span>","value":"0.05"}],"value":"[298.85 0.05]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>282.48</span>","value":"282.48"},{"type":"html","content":"<span class='clj-double'>14.82629653</span>","value":"14.82629653"}],"value":"[282.48 14.82629653]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>296.48</span>","value":"296.48"},{"type":"html","content":"<span class='clj-double'>5.0</span>","value":"5.0"}],"value":"[296.48 5.0]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>297.73</span>","value":"297.73"},{"type":"html","content":"<span class='clj-double'>3.6407</span>","value":"3.6407"}],"value":"[297.73 3.6407]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>295.83</span>","value":"295.83"},{"type":"html","content":"<span class='clj-double'>3.632</span>","value":"3.632"}],"value":"[295.83 3.632]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>297.17</span>","value":"297.17"},{"type":"html","content":"<span class='clj-double'>1.212</span>","value":"1.212"}],"value":"[297.17 1.212]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>297.92</span>","value":"297.92"},{"type":"html","content":"<span class='clj-double'>1.0</span>","value":"1.0"}],"value":"[297.92 1.0]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>298.17</span>","value":"298.17"},{"type":"html","content":"<span class='clj-double'>6.68</span>","value":"6.68"}],"value":"[298.17 6.68]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>296.22</span>","value":"296.22"},{"type":"html","content":"<span class='clj-double'>0.35459833</span>","value":"0.35459833"}],"value":"[296.22 0.35459833]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>298.02</span>","value":"298.02"},{"type":"html","content":"<span class='clj-double'>6.104</span>","value":"6.104"}],"value":"[298.02 6.104]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>293.16</span>","value":"293.16"},{"type":"html","content":"<span class='clj-double'>0.01</span>","value":"0.01"}],"value":"[293.16 0.01]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>297.84</span>","value":"297.84"},{"type":"html","content":"<span class='clj-double'>0.01</span>","value":"0.01"}],"value":"[297.84 0.01]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>294.34</span>","value":"294.34"},{"type":"html","content":"<span class='clj-double'>8.2723</span>","value":"8.2723"}],"value":"[294.34 8.2723]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>296.78</span>","value":"296.78"},{"type":"html","content":"<span class='clj-double'>1.8291</span>","value":"1.8291"}],"value":"[296.78 1.8291]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>295.78</span>","value":"295.78"},{"type":"html","content":"<span class='clj-double'>5.0</span>","value":"5.0"}],"value":"[295.78 5.0]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>298.54</span>","value":"298.54"},{"type":"html","content":"<span class='clj-double'>0.05090736</span>","value":"0.05090736"}],"value":"[298.54 0.05090736]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>298.04</span>","value":"298.04"},{"type":"html","content":"<span class='clj-double'>5.37</span>","value":"5.37"}],"value":"[298.04 5.37]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>294.54</span>","value":"294.54"},{"type":"html","content":"<span class='clj-double'>7.2119</span>","value":"7.2119"}],"value":"[294.54 7.2119]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>293.54</span>","value":"293.54"},{"type":"html","content":"<span class='clj-double'>10.8839</span>","value":"10.8839"}],"value":"[293.54 10.8839]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>293.96</span>","value":"293.96"},{"type":"html","content":"<span class='clj-double'>9.4887</span>","value":"9.4887"}],"value":"[293.96 9.4887]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>296.21</span>","value":"296.21"},{"type":"html","content":"<span class='clj-double'>6.4</span>","value":"6.4"}],"value":"[296.21 6.4]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>295.24</span>","value":"295.24"},{"type":"html","content":"<span class='clj-double'>6.0</span>","value":"6.0"}],"value":"[295.24 6.0]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>294.74</span>","value":"294.74"},{"type":"html","content":"<span class='clj-double'>6.2874</span>","value":"6.2874"}],"value":"[294.74 6.2874]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>298.24</span>","value":"298.24"},{"type":"html","content":"<span class='clj-double'>0.02</span>","value":"0.02"}],"value":"[298.24 0.02]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>296.24</span>","value":"296.24"},{"type":"html","content":"<span class='clj-double'>2.7605</span>","value":"2.7605"}],"value":"[296.24 2.7605]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>296.11</span>","value":"296.11"},{"type":"html","content":"<span class='clj-double'>3.1664</span>","value":"3.1664"}],"value":"[296.11 3.1664]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>295.51</span>","value":"295.51"},{"type":"html","content":"<span class='clj-double'>7.0</span>","value":"7.0"}],"value":"[295.51 7.0]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>296.62</span>","value":"296.62"},{"type":"html","content":"<span class='clj-double'>6.0</span>","value":"6.0"}],"value":"[296.62 6.0]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>295.37</span>","value":"295.37"},{"type":"html","content":"<span class='clj-double'>5.6</span>","value":"5.6"}],"value":"[295.37 5.6]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>295.13</span>","value":"295.13"},{"type":"html","content":"<span class='clj-double'>5.4814</span>","value":"5.4814"}],"value":"[295.13 5.4814]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>298.13</span>","value":"298.13"},{"type":"html","content":"<span class='clj-double'>0.08</span>","value":"0.08"}],"value":"[298.13 0.08]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>296.43</span>","value":"296.43"},{"type":"html","content":"<span class='clj-double'>2.4066</span>","value":"2.4066"}],"value":"[296.43 2.4066]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>296.93</span>","value":"296.93"},{"type":"html","content":"<span class='clj-double'>1.5946</span>","value":"1.5946"}],"value":"[296.93 1.5946]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>298.43</span>","value":"298.43"},{"type":"html","content":"<span class='clj-double'>0.05086591</span>","value":"0.05086591"}],"value":"[298.43 0.05086591]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>298.18</span>","value":"298.18"},{"type":"html","content":"<span class='clj-double'>5.12</span>","value":"5.12"}],"value":"[298.18 5.12]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>298.93</span>","value":"298.93"},{"type":"html","content":"<span class='clj-double'>0.175</span>","value":"0.175"}],"value":"[298.93 0.175]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>295.93</span>","value":"295.93"},{"type":"html","content":"<span class='clj-double'>6.0</span>","value":"6.0"}],"value":"[295.93 6.0]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>298.82</span>","value":"298.82"},{"type":"html","content":"<span class='clj-double'>0.035</span>","value":"0.035"}],"value":"[298.82 0.035]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>297.06</span>","value":"297.06"},{"type":"html","content":"<span class='clj-double'>1.3902</span>","value":"1.3902"}],"value":"[297.06 1.3902]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>296.56</span>","value":"296.56"},{"type":"html","content":"<span class='clj-double'>23.5938</span>","value":"23.5938"}],"value":"[296.56 23.5938]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>296.06</span>","value":"296.06"},{"type":"html","content":"<span class='clj-double'>6.0</span>","value":"6.0"}],"value":"[296.06 6.0]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>298.31</span>","value":"298.31"},{"type":"html","content":"<span class='clj-double'>1.0</span>","value":"1.0"}],"value":"[298.31 1.0]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>298.19</span>","value":"298.19"},{"type":"html","content":"<span class='clj-double'>0.03</span>","value":"0.03"}],"value":"[298.19 0.03]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>279.19</span>","value":"279.19"},{"type":"html","content":"<span class='clj-double'>0.342369</span>","value":"0.342369"}],"value":"[279.19 0.342369]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-double'>295.44</span>","value":"295.44"},{"type":"html","content":"<span class='clj-double'>4.7787</span>","value":"4.7787"}],"value":"[295.44 4.7787]"}],"value":"{296.0 3.8, 265.0 1.0, 298.7 0.12000000000000001, 295.65 6.0, 298.0 18.41, 298.5 0.01, 298.4 0.05086591, 292.25 0.05, 295.7 4.1661, 270.0 1.5, 296.65 2.0981, 297.9 0.04, 297.3 12.041, 298.8 0.02, 291.55 6.778, 296.35 6.0, 298.85 0.05, 282.48 14.82629653, 296.48 5.0, 297.73 3.6407, 295.83 3.632, 297.17 1.212, 297.92 1.0, 298.17 6.68, 296.22 0.35459833, 298.02 6.104, 293.16 0.01, 297.84 0.01, 294.34 8.2723, 296.78 1.8291, 295.78 5.0, 298.54 0.05090736, 298.04 5.37, 294.54 7.2119, 293.54 10.8839, 293.96 9.4887, 296.21 6.4, 295.24 6.0, 294.74 6.2874, 298.24 0.02, 296.24 2.7605, 296.11 3.1664, 295.51 7.0, 296.62 6.0, 295.37 5.6, 295.13 5.4814, 298.13 0.08, 296.43 2.4066, 296.93 1.5946, 298.43 0.05086591, 298.18 5.12, 298.93 0.175, 295.93 6.0, 298.82 0.035, 297.06 1.3902, 296.56 23.5938, 296.06 6.0, 298.31 1.0, 298.19 0.03, 279.19 0.342369, 295.44 4.7787}"}
+;; <=
