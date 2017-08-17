@@ -54,4 +54,33 @@
                                                         parse-numbers)))
         _ (ws/send-msg socket (get-subscribe-event products))]
     {:feed feed
-     :stop #(ws/close socket)}))
+     :stop (fn []
+            (ws/close socket)
+            (a/close! feed))}))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Realtime Orderbook ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn add-book-entry
+  [book {:keys [product_id order_id] :as entry}]
+  (cond
+    (= "match" (:type entry)) (swap! book update-in [product_id :matches] #(conj % entry))
+    :else (swap! book update-in [product_id order_id] #(conj % entry))))
+
+(defn create-realtime-orderbook
+  [products & {:keys [] :as opt}]
+  (let [{:keys [feed stop] :as subscription} (subscribe products :buffer-size 1000)
+        book (atom {})]
+
+    (a/go-loop
+      [x (a/<! feed)]
+      (when x
+        (add-book-entry book x)
+        (recur (a/<! feed))))
+
+    {:book book, :stop #(stop)}))
+
+(defn get-orders
+  [snapshot product filter-fn]
+  (filter filter-fn (get snapshot product)))

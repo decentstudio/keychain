@@ -1,0 +1,162 @@
+;; gorilla-repl.fileformat = 1
+
+;; **
+;;; # Gorilla REPL
+;;; 
+;;; Welcome to gorilla :-)
+;;; 
+;;; Shift + enter evaluates code. Hit alt+g twice in quick succession or click the menu icon (upper-right corner) for more commands ...
+;;; 
+;;; It's a good habit to run each worksheet in its own namespace: feel free to use the declaration we've provided below if you'd like.
+;; **
+
+;; @@
+(ns merciful-desert
+  (:require [gorilla-plot.core :as plot]
+            [keychain.exchange.gdax :as gdax]
+            [clojure.core.async :as a]))
+;; @@
+
+;; @@
+(def obook (gdax/create-realtime-orderbook ["ETH-USD"]))
+;; @@
+
+;; @@
+(def book (:book obook))
+;; @@
+
+;; @@
+((:stop obook))
+;; @@
+
+;; @@
+(count (gdax/get-orders @book "ETH-USD" identity))
+
+(def get-orders gdax/get-orders)
+;; @@
+
+;; @@
+(defn open? 
+  [order]
+  (= "open" (-> order val first :type)))
+
+(defn buy?
+  [order]
+  (= "buy" (-> order val first :side)))
+
+(defn sell?
+  [order]
+  (= "sell" (-> order val first :side)))
+
+(defn B
+  "Open bid limit orders."
+  [snapshot product]
+  (->> (get-orders 
+         snapshot 
+         product
+         (fn [order]
+           (and
+             (open? order)
+             (buy? order))))
+       (into {})))
+
+(defn A
+  "Open ask limit orders."
+  [snapshot product]
+  (->> (get-orders
+         snapshot
+         product
+         (fn [order]
+           (and
+             (open? order)
+             (sell? order))))
+       (into {})))
+
+(defn get-prices
+  [orders]
+  (->> orders 
+       (map val)
+       (map first)
+       (map :price)))
+
+(defn b
+  "Current bid price."
+  [snapshot product]
+  (->> (B snapshot product)
+       (get-prices)
+       (apply max)))
+
+(defn a
+  "Current ask price."
+  [snapshot product]
+  (->> (A snapshot product)
+       (get-prices)
+       (apply min)))
+
+(defn s
+  "Current bid-ask spread."
+  [snapshot product]
+  (- (a snapshot product) (b snapshot product)))
+
+(defn nbpt
+  "Current bid-side depth at a given price."
+  [snapshot product price]
+  (->> (B snapshot product)
+       (filter #(= price (-> % val first :price)))
+       (map val)
+       (map first)
+       (map #(or (:size %) (:remaining_size %)))
+       (reduce +)))
+
+(defn napt
+  "Current ask-side depth at a given price."
+  [snapshot product price]
+  (->> (A snapshot product)
+       (filter #(= price (-> % val first :price)))
+       (map val)
+       (map first)
+       (map #(or (:size %) (:remaining_size %)))
+       (reduce +)))
+;; @@
+
+;; @@
+(def snap @book)
+(def product "ETH-USD")
+
+(clojure.pprint/pprint
+{:bid-count (count (B snap product))
+ :ask-count (count (A snap product))
+ :bid (b snap product)
+ :ask (a snap product)
+ :spread (s snap product)})
+;; @@
+
+;; @@
+{:bid-side-price-levels
+(->> (B snap product)
+     (get-prices)
+     (into #{})
+     count)
+:ask-side-price-levels
+(->> (A snap product)
+     (get-prices)
+     (into #{})
+     count)
+ }
+;; @@
+
+;; @@
+(def levels
+  (pmap (fn [p] {p (nbpt snap product p)})
+        (->> (B snap product)
+             (get-prices)
+             (into #{}))))
+;; @@
+
+;; @@
+(count levels)
+;; @@
+
+;; @@
+
+;; @@
