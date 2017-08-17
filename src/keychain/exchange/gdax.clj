@@ -84,3 +84,109 @@
 (defn get-orders
   [snapshot product filter-fn]
   (filter filter-fn (get snapshot product)))
+
+(defn open?
+  [order]
+  (= "open" (-> order val first :type)))
+
+(defn buy?
+  [order]
+  (= "buy" (-> order val first :side)))
+
+(defn sell?
+  [order]
+  (= "sell" (-> order val first :side)))
+
+(defn B
+  "Open bid limit orders."
+  [snapshot product]
+  (->> (get-orders
+         snapshot
+         product
+         (fn [order]
+           (and
+             (open? order)
+             (buy? order))))
+       (into {})))
+
+(defn A
+  "Open ask limit orders."
+  [snapshot product]
+  (->> (get-orders
+         snapshot
+         product
+         (fn [order]
+           (and
+             (open? order)
+             (sell? order))))
+       (into {})))
+
+(defn get-prices
+  [orders]
+  (->> orders
+       (map val)
+       (map first)
+       (map :price)))
+
+(defn b
+  "Current bid price."
+  [snapshot product]
+  (->> (B snapshot product)
+       (get-prices)
+       (apply max)))
+
+(defn a
+  "Current ask price."
+  [snapshot product]
+  (->> (A snapshot product)
+       (get-prices)
+       (apply min)))
+
+(defn s
+  "Current bid-ask spread."
+  [snapshot product]
+  (- (a snapshot product) (b snapshot product)))
+
+(defn m
+  "Current mid price."
+  [snapshot product]
+  (/ (+ (a snapshot product) (b snapshot product)) 2))
+
+(defn nxpt*
+  "General function for nbpt and napt."
+  [side-fn snapshot produce price]
+  (->> (side-fn snapshot product)
+       (filter #(= price (-> % val first :price)))
+       (map val)
+       (map first)
+       (map #(or (:size %) (:remaining_size %)))
+       (reduce +)))
+
+(defn nbpt
+  "Current bid-side depth at a given price."
+  [snapshot product price]
+  (nxpt* B snapshot product price))
+
+(defn napt
+  "Current ask-side depth at a given price."
+  [snapshot product price]
+  (nxpt* A snapshot product price))
+
+(defn nxpt-profile*
+  "General function for nbpt-profile and napt-profile."
+  [side-fn snapshot product]
+  (->> (side-fn snapshot product)
+       (get-prices)
+       (into #{})
+       (pmap (fn [p] {p (nxpt* side-fn snapshot product p)}))
+       (reduce merge)))
+
+(defn nbpt-profile
+  "Current bid-side depth profile for a given snapshot."
+  [snapshot product]
+  (nxpt-profile* B snapshot product))
+
+(defn napt-profile
+  "Current ask-side depth profile for a given snapshot."
+  [snapshot product]
+  (nxpt-profile* A snapshot product)))

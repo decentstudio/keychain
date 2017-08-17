@@ -98,25 +98,49 @@
   [snapshot product]
   (- (a snapshot product) (b snapshot product)))
 
-(defn nbpt
-  "Current bid-side depth at a given price."
-  [snapshot product price]
-  (->> (B snapshot product)
+(defn m
+  "Current mid price."
+  [snapshot product]
+  (/ (+ (a snapshot product) (b snapshot product)) 2))
+
+(defn nxpt*
+  "General function for nbpt and napt."
+  [side-fn snapshot produce price]
+  (->> (side-fn snapshot product)
        (filter #(= price (-> % val first :price)))
        (map val)
        (map first)
        (map #(or (:size %) (:remaining_size %)))
        (reduce +)))
 
+(defn nbpt
+  "Current bid-side depth at a given price."
+  [snapshot product price]
+  (nxpt* B snapshot product price))
+
 (defn napt
   "Current ask-side depth at a given price."
   [snapshot product price]
-  (->> (A snapshot product)
-       (filter #(= price (-> % val first :price)))
-       (map val)
-       (map first)
-       (map #(or (:size %) (:remaining_size %)))
-       (reduce +)))
+  (nxpt* A snapshot product price))
+
+(defn nxpt-profile*
+  "General function for nbpt-profile and napt-profile."
+  [side-fn snapshot product]
+  (->> (side-fn snapshot product)
+       (get-prices)
+       (into #{})
+       (pmap (fn [p] {p (nxpt* side-fn snapshot product p)}))
+       (reduce merge)))
+
+(defn nbpt-profile
+  "Current bid-side depth profile for a given snapshot."
+  [snapshot product]
+  (nxpt-profile* B snapshot product))
+
+(defn napt-profile
+  "Current ask-side depth profile for a given snapshot."
+  [snapshot product]
+  (nxpt-profile* A snapshot product))
 ;; @@
 
 ;; @@
@@ -128,35 +152,6 @@
  :ask-count (count (A snap product))
  :bid (b snap product)
  :ask (a snap product)
- :spread (s snap product)})
-;; @@
-
-;; @@
-{:bid-side-price-levels
-(->> (B snap product)
-     (get-prices)
-     (into #{})
-     count)
-:ask-side-price-levels
-(->> (A snap product)
-     (get-prices)
-     (into #{})
-     count)
- }
-;; @@
-
-;; @@
-(def levels
-  (pmap (fn [p] {p (nbpt snap product p)})
-        (->> (B snap product)
-             (get-prices)
-             (into #{}))))
-;; @@
-
-;; @@
-(count levels)
-;; @@
-
-;; @@
-
+ :spread (s snap product)
+ :mid (m snap product)})
 ;; @@
