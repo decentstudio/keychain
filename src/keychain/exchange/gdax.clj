@@ -61,6 +61,7 @@
   (let [metadata (atom {})
         add-log-entry* (fn [entry] (swap! metadata add-log-entry entry))
         feed (a/chan (or buffer (a/sliding-buffer 1000)))
+        error (a/chan)
         socket (ws/connect "wss://ws-feed.gdax.com"
                            :on-connect
                            (fn [^org.eclipse.jetty.websocket.api.Session s]
@@ -70,13 +71,15 @@
                              (add-log-entry* [(now) :closed code reason]))
                            :on-error
                            (fn [^java.lang.Throwable t]
-                             (add-log-entry* [(now) :error (.getMessage t)]))
+                             (add-log-entry* [(now) :error (.getMessage t)])
+                             (a/>!! error t))
                            :on-receive
                            (fn [message]
                              (add-log-entry* [(now) :receive])
                              (a/>!! feed (-> message json->edn parse-numbers))))
         _ (ws/send-msg socket (get-subscribe-event products))]
     {:feed feed
+     :error error
      :metadata metadata
      :stop (fn []
             (ws/close socket)

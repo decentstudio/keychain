@@ -12,6 +12,8 @@ All notable changes to this project will be documented in this file. This change
   - on-receive
 - A core async buffer can be supplied to gdax/subscribe now. Default is still
   a sliding buffer of size 1000
+- The error supplied by the on-error function now places the Throwable onto a
+  core async channel called error.
 
 ### 08/16/2017
 - Added order book calculations
