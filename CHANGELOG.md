@@ -10,6 +10,8 @@ All notable changes to this project will be documented in this file. This change
   - on-close
   - on-error
   - on-receive
+- A core async buffer can be supplied to gdax/subscribe now. Default is still
+  a sliding buffer of size 1000
 
 ### 08/16/2017
 - Added order book calculations

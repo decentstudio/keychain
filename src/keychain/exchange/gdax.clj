@@ -57,10 +57,10 @@
   [metadata entry]
   (update-in metadata [:logs] conj entry))
 
-(defn subscribe [products & {:keys [buffer-size], :or {buffer-size 1}}]
+(defn subscribe [products & {:keys [buffer]}]
   (let [metadata (atom {})
         add-log-entry* (fn [entry] (swap! metadata add-log-entry entry))
-        feed (a/chan (a/sliding-buffer buffer-size))
+        feed (a/chan (or buffer (a/sliding-buffer 1000)))
         socket (ws/connect "wss://ws-feed.gdax.com"
                            :on-connect
                            (fn [^org.eclipse.jetty.websocket.api.Session s]
