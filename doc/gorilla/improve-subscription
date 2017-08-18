@@ -15,43 +15,22 @@
   (:require [gorilla-plot.core :as plot]
             [keychain.exchange.gdax :as gdax]))
 ;; @@
-;; =>
-;;; {"type":"html","content":"<span class='clj-nil'>nil</span>","value":"nil"}
-;; <=
 
 ;; @@
 (def sub (gdax/subscribe ["BTC-USD"]))
 ;; @@
-;; =>
-;;; {"type":"html","content":"<span class='clj-var'>#&#x27;hollow-cliff/sub</span>","value":"#'hollow-cliff/sub"}
-;; <=
 
 ;; @@
-(:metadata sub)
+(count (:log @(:metadata sub)))
 ;; @@
-;; =>
-;;; {"type":"html","content":"<span class='clj-atom'>#object[clojure.lang.Atom 0x1cd755a9 {:status :ready, :val {:log ([&quot;2017-08-18T01:49:19.937Z&quot; :connected])}}]</span>","value":"#object[clojure.lang.Atom 0x1cd755a9 {:status :ready, :val {:log ([\"2017-08-18T01:49:19.937Z\" :connected])}}]"}
-;; <=
 
 ;; @@
 ((:stop sub))
 ;; @@
-;; =>
-;;; {"type":"html","content":"<span class='clj-nil'>nil</span>","value":"nil"}
-;; <=
 
 ;; @@
-(clojure.pprint/pprint @(:metadata sub))
+(first (:log @(:metadata sub)))
 ;; @@
-;; ->
-;;; {:log
-;;;  ([&quot;2017-08-18T01:49:40.212Z&quot; :closed 1001 &quot;Shutdown&quot;]
-;;;   [&quot;2017-08-18T01:49:19.937Z&quot; :connected])}
-;;; 
-;; <-
-;; =>
-;;; {"type":"html","content":"<span class='clj-nil'>nil</span>","value":"nil"}
-;; <=
 
 ;; @@
 

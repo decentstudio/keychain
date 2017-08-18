@@ -53,23 +53,28 @@
 
 (defn now [] (str (Instant/now)))
 
+(defn add-log-entry
+  [metadata entry]
+  (update-in metadata [:logs] conj entry))
+
 (defn subscribe [products & {:keys [buffer-size], :or {buffer-size 1}}]
   (let [metadata (atom {})
+        add-log-entry* (fn [entry] (swap! metadata add-log-entry entry))
         feed (a/chan (a/sliding-buffer buffer-size))
         socket (ws/connect "wss://ws-feed.gdax.com"
                            :on-connect
                            (fn [^org.eclipse.jetty.websocket.api.Session s]
-                             (swap! metadata update-in [:log] #(conj % [(now) :connected])))
+                             (add-log-entry* [(now) :connected]))
                            :on-close
                            (fn [code reason]
-                             (swap! metadata update-in [:log] #(conj % [(now) :closed code reason])))
+                             (add-log-entry* [(now) :closed code reason]))
                            :on-error
                            (fn [^java.lang.Throwable t]
-                             (swap! metadata update-in [:log] #(conj % [(now) :error (.getMessage t)])))
+                             (add-log-entry* [(now) :error (.getMessage t)]))
                            :on-receive
-                           (fn [m]
-                             (swap! metadata update-in [:log] #(conj % [(now) :receive]))
-                             (a/>!! feed (-> m json->edn parse-numbers))))
+                           (fn [message]
+                             (add-log-entry* [(now) :receive])
+                             (a/>!! feed (-> message json->edn parse-numbers))))
         _ (ws/send-msg socket (get-subscribe-event products))]
     {:feed feed
      :metadata metadata
