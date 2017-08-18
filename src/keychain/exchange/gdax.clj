@@ -1,7 +1,8 @@
 (ns keychain.exchange.gdax
   (:require [gniazdo.core :as ws]
             [clojure.data.json :as json]
-            [clojure.core.async :as a]))
+            [clojure.core.async :as a])
+  (:import java.time.Instant))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Websocket Feed ;;;;
@@ -50,14 +51,28 @@
   [entry]
   (parse-and-merge-numbers entry [:new_size :old_size :price]))
 
+(defn now [] (str (Instant/now)))
+
 (defn subscribe [products & {:keys [buffer-size], :or {buffer-size 1}}]
-  (let [feed (a/chan (a/sliding-buffer buffer-size))
+  (let [metadata (atom {})
+        feed (a/chan (a/sliding-buffer buffer-size))
         socket (ws/connect "wss://ws-feed.gdax.com"
-                           :on-receive #(a/>!! feed (-> %
-                                                        json->edn
-                                                        parse-numbers)))
+                           :on-connect
+                           (fn [^org.eclipse.jetty.websocket.api.Session s]
+                             (swap! metadata update-in [:log] #(conj % [(now) :connected])))
+                           :on-close
+                           (fn [code reason]
+                             (swap! metadata update-in [:log] #(conj % [(now) :closed code reason])))
+                           :on-error
+                           (fn [^java.lang.Throwable t]
+                             (swap! metadata update-in [:log] #(conj % [(now) :error (.getMessage t)])))
+                           :on-receive
+                           (fn [m]
+                             (swap! metadata update-in [:log] #(conj % [(now) :receive]))
+                             (a/>!! feed (-> m json->edn parse-numbers))))
         _ (ws/send-msg socket (get-subscribe-event products))]
     {:feed feed
+     :metadata metadata
      :stop (fn []
             (ws/close socket)
             (a/close! feed))}))
