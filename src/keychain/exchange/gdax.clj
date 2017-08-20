@@ -188,7 +188,7 @@
   [entry]
   (parse-and-merge-numbers entry [:new_size :old_size :price]))
 
-(defn now [] (str (Instant/now)))
+(defn now [] (str (java.time.Instant/now)))
 
 (defn add-log-entry
   [metadata entry]
