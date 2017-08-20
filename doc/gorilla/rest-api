@@ -17,7 +17,8 @@
             [clojure.data.codec.base64 :as b64]
             [clojure.data.json :as json])
   (:import javax.crypto.Mac
-           javax.crypto.spec.SecretKeySpec))
+           javax.crypto.spec.SecretKeySpec
+           clojure.lang.ExceptionInfo))
 ;; @@
 
 ;; @@
@@ -50,6 +51,7 @@
 
 ;; @@
 (defn ->json [x] (json/write-str x :key-fn name))
+(defn json->edn [x] (json/read-str x :key-fn keyword))
 ;; @@
 
 ;; @@
@@ -119,11 +121,32 @@
 ;; @@
 
 ;; @@
-(try 
-  
-  (clojure.pprint/pprint 
-    (http/request (->http (sign-request (get-credentials) 
-                                        {:method "GET", :url "https://api.gdax.com", :path "/accounts"}))))
-  
-  (catch clojure.lang.ExceptionInfo e e))
+(def errors
+  {400 "Bad Request – Invalid request format"
+   401 "Unauthorized – Invalid API Key"
+   403 "Forbidden – You do not have access to the requested resource"
+   404 "Not Found"
+   500 "Internal Server Error – We had a problem with our server"})
+
+(defn send-request
+  [credentials request & {:keys [debug]}]
+  (try
+    (:body (http/request (->http (sign-request credentials request))))
+    (catch ExceptionInfo e
+      (let [{:keys [status body]} (ex-data e)]
+        (when debug (clojure.pprint/pprint body))
+        (throw (ex-info (str status " " (get errors status "Unknown Error Code"))
+                        {:status status
+                         :message (or (:message (json->edn body)) "")}))))))
+;; @@
+
+;; @@
+(try
+  (send-request 
+    (get-credentials)
+    {:method "GET", 
+     :url "https://api.gdax.com", 
+     :path "/products/ETH-USD/book"
+     :query-params {:level "3"}})
+(catch ExceptionInfo e e))
 ;; @@
