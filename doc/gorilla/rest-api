@@ -1,0 +1,152 @@
+;; gorilla-repl.fileformat = 1
+
+;; **
+;;; # Gorilla REPL
+;;; 
+;;; Welcome to gorilla :-)
+;;; 
+;;; Shift + enter evaluates code. Hit alt+g twice in quick succession or click the menu icon (upper-right corner) for more commands ...
+;;; 
+;;; It's a good habit to run each worksheet in its own namespace: feel free to use the declaration we've provided below if you'd like.
+;; **
+
+;; @@
+(ns spacial-fog
+  (:require [gorilla-plot.core :as plot]
+            [clj-http.client :as http]
+            [clojure.data.codec.base64 :as b64]
+            [clojure.data.json :as json])
+  (:import javax.crypto.Mac
+           javax.crypto.spec.SecretKeySpec
+           clojure.lang.ExceptionInfo))
+;; @@
+
+;; @@
+(def gdax-access-key "KEYCHAIN_GDAX_ACCESS_KEY")
+(def gdax-access-secret "KEYCHAIN_GDAX_ACCESS_SECRET")
+(def gdax-access-passphrase "KEYCHAIN_GDAX_ACCESS_PASSPHRASE")
+
+(defn get-credentials
+  []
+  {:access-key (System/getenv gdax-access-key)
+   :access-secret (System/getenv gdax-access-secret)
+   :access-passphrase (System/getenv gdax-access-passphrase)})
+;; @@
+
+;; @@
+(defn get-timestamp
+  []
+  (.. (java.time.Instant/now)
+      getEpochSecond))
+;; @@
+
+;; @@
+(defn get-signature-headers
+  [access-key access-passphrase signature timestamp]
+  {:headers {:CB-ACCESS-KEY access-key
+             :CB-ACCESS-SIGN signature
+             :CB-ACCESS-TIMESTAMP timestamp
+             :CB-ACCESS-PASSPHRASE access-passphrase}})
+;; @@
+
+;; @@
+(defn ->json [x] (json/write-str x :key-fn name))
+(defn json->edn [x] (json/read-str x :key-fn keyword))
+;; @@
+
+;; @@
+(defn decode-access-secret
+  [^String access-secret]
+  (b64/decode (.getBytes access-secret)))
+
+(defn get-secret-key 
+  [^String access-secret ^String algorithm]
+  (SecretKeySpec. (decode-access-secret access-secret) algorithm))
+
+(defn get-mac
+  [secret-key algorithm]
+  (doto 
+    (Mac/getInstance algorithm)
+    (.init secret-key)))
+
+(defn sign
+  [mac message]
+  (-> message
+      (.getBytes)
+      (#(.doFinal mac %))
+      (b64/encode)
+      (String. "UTF-8")))
+
+(defn get-signature
+  [^String access-secret ^String message & {:keys [algorithm] :or {algorithm "HmacSHA256"}}]
+  (let [secret-key (get-secret-key access-secret algorithm)
+        mac (get-mac secret-key algorithm)]
+    (sign mac message)))
+;; @@
+
+;; @@
+(defn sign-request
+  [{:keys [access-key access-passphrase access-secret] :as credentials} 
+   {:keys [method path body] :as request}]
+  (let [timestamp (get-timestamp)]
+    (merge request 
+           (get-signature-headers access-key
+                                  access-passphrase
+                                  (get-signature access-secret (str timestamp method path (when body (->json body))))
+                                  timestamp))))
+;; @@
+
+;; @@
+(sign-request 
+  (get-credentials)
+  {:method "GET"
+   :path "/accounts"})
+;; @@
+
+;; @@
+(defn attach-body-maybe
+  [{:keys [body] :as request}]
+  (if-not (empty? body)
+    (assoc request :body (->json body))
+    request))
+
+(defn ->http
+  [{:keys [url path body] :as request}]
+  (-> request
+      (dissoc :path)
+      (assoc :url (str url path))
+      (assoc :content-type :json)
+      (assoc :as :json)
+      (attach-body-maybe)))
+;; @@
+
+;; @@
+(def errors
+  {400 "Bad Request – Invalid request format"
+   401 "Unauthorized – Invalid API Key"
+   403 "Forbidden – You do not have access to the requested resource"
+   404 "Not Found"
+   500 "Internal Server Error – We had a problem with our server"})
+
+(defn send-request
+  [credentials request & {:keys [debug]}]
+  (try
+    (:body (http/request (->http (sign-request credentials request))))
+    (catch ExceptionInfo e
+      (let [{:keys [status body]} (ex-data e)]
+        (when debug (clojure.pprint/pprint body))
+        (throw (ex-info (str status " " (get errors status "Unknown Error Code"))
+                        {:status status
+                         :message (or (:message (json->edn body)) "")}))))))
+;; @@
+
+;; @@
+(try
+  (send-request 
+    (get-credentials)
+    {:method "GET", 
+     :url "https://api.gdax.com", 
+     :path "/products/ETH-USD/book"
+     :query-params {:level "3"}})
+(catch ExceptionInfo e e))
+;; @@

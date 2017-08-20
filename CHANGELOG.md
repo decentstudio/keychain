@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file. This change
 
 # [Unstable]
 
+### 08/18/17
+- Added REST API client.
+- Added and `get-product-order-book` function.
+
 ### 08/15/16
 - Setup the repository
 - Added GDAX production subscription functionality.
