@@ -190,37 +190,41 @@
 
 (defn now [] (str (java.time.Instant/now)))
 
-(defn add-log-entry
-  [metadata entry]
-  (update-in metadata [:logs] conj entry))
+(defn on-connect
+  [log-fn ^org.eclipse.jetty.websocket.api.Session s]
+  (log-fn [(now) :connected]))
 
-(defn subscribe [products & {:keys [buffer]}]
-  (let [metadata (atom {})
-        add-log-entry* (fn [entry] (swap! metadata add-log-entry entry))
-        feed (a/chan (or buffer (a/sliding-buffer 1000)))
-        error (a/chan)
+(defn on-close
+  [log-fn ^Integer code ^String reason]
+  (log-fn [(now) :closed code reason]))
+
+(defn on-error
+  [log-fn ^java.lang.Throwable t]
+  (log-fn [(now) :error (.getMessage t)]))
+
+(defn on-receive
+  [log-fn ^String message]
+  (log-fn [(now) (-> message json->edn parse-numbers)]))
+
+(defn subscribe [products & {:keys [buffer] :or {buffer (a/sliding-buffer 1000)}}]
+  (let [connect (a/chan)
+        close   (a/chan)
+        error   (a/chan)
+        feed    (a/chan buffer)
+        publish (fn [chan] #(a/put! chan %))
         socket (ws/connect "wss://ws-feed.gdax.com"
-                           :on-connect
-                           (fn [^org.eclipse.jetty.websocket.api.Session s]
-                             (add-log-entry* [(now) :connected]))
-                           :on-close
-                           (fn [code reason]
-                             (add-log-entry* [(now) :closed code reason]))
-                           :on-error
-                           (fn [^java.lang.Throwable t]
-                             (add-log-entry* [(now) :error (.getMessage t)])
-                             (a/>!! error t))
-                           :on-receive
-                           (fn [message]
-                             (add-log-entry* [(now) :receive])
-                             (a/>!! feed (-> message json->edn parse-numbers))))
+                           :on-connect (partial on-connect (publish connect))
+                           :on-close   (partial on-close (publish close))
+                           :on-error   (partial on-error (publish error))
+                           :on-receive (partial on-receive (publish feed)))
         _ (ws/send-msg socket (get-subscribe-event products))]
     {:feed feed
      :error error
-     :metadata metadata
+     :close close
+     :connect connect
      :stop (fn []
             (ws/close socket)
-            (a/close! feed))}))
+            (doseq [c [feed close connect error]] (a/close! c)))}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Realtime Orderbook ;;;;
