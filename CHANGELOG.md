@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file. This change
 
 # [Unstable]
 
+### 08/18/17
+- Added REST API client.
+- Added and `get-product-order-book` function.
+
 ### 08/17/2017
 - Added metadata to the GDAX websocket subscription component
 - Implemented various event functions for logging on the websocket client
