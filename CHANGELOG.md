@@ -19,20 +19,7 @@ All notable changes to this project will be documented in this file. This change
 - The error supplied by the on-error function now places the Throwable onto a
   core async channel called error.
 
-### 08/16/2017
-- Added order book calculations
-  - A (Get Ask Side)
-  - B (Get Bid Side)
-  - a (Get Current Ask)
-  - b (Get Current Bid)
-  - s (Get Current Spread)
-  - m (Get Current mid price)
-  - nbpt (Get Current Bid Side Depth For Price P)
-  - napt (Get Current Ask Side Depth For Price P)
-  - nbpt-profile (Get Current Bid Side Depth Profile)
-  - napt-profile (Get Current Ask Side Depth Profile)
-
 ### 08/15/2017
 - Setup the repository
-- Added GDAX production subscription functionality.
+- Added GDAX product subscription functionality.
 - Added number parsing for various GDAX entry events with tests.
