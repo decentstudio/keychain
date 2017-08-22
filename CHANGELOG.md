@@ -3,6 +3,12 @@ All notable changes to this project will be documented in this file. This change
 
 # [Unstable]
 
+### 08/21/17
+- Exposed websocket events through async channels
+  - connected
+  - closed
+  - errored
+
 ### 08/18/17
 - Added REST API client.
 - Added and `get-product-order-book` function.

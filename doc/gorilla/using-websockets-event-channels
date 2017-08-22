@@ -22,13 +22,13 @@
 ;; @@
 
 ;; @@
-(a/poll! (:connect sub))
+(a/poll! (:connected sub))
 ;; @@
 
 ;; @@
-((:stop sub))
+((:close sub))
 ;; @@
 
 ;; @@
-(a/poll! (:close sub))
+(a/poll! (:closed sub))
 ;; @@
