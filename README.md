@@ -37,13 +37,13 @@ Example:
 ```clojure
 (def product "ETH-USD")
 ;; Defaults to level 1
-(get-product-order-book product)
+(get-product-order-book gdax product)
 
 ;; Level 2
-(get-product-order-book product :level 2)
+(get-product-order-book gdax :level 2)
 
 ;; Level 3
-(get-product-order-book product :level 3)
+(get-product-order-book gdax :level 3)
 ```
 
 ### Websockets Feed
@@ -71,6 +71,7 @@ A zero argument function that will close the websocket subscription and all asso
 
 ```clojure
 (use 'clojure.core.async)
+
 (def products ["ETH-USD" "ETH-BTC"])
 
 (def subscription (subscribe products))
