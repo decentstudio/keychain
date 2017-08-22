@@ -1,0 +1,135 @@
+;; gorilla-repl.fileformat = 1
+
+;; **
+;;; # Gorilla REPL
+;;; 
+;;; Welcome to gorilla :-)
+;;; 
+;;; Shift + enter evaluates code. Hit alt+g twice in quick succession or click the menu icon (upper-right corner) for more commands ...
+;;; 
+;;; It's a good habit to run each worksheet in its own namespace: feel free to use the declaration we've provided below if you'd like.
+;; **
+
+;; @@
+(ns radioactive-willow
+  (:require [gorilla-plot.core :as plot]
+            [keychain.exchange.gdax :as gdax]
+            [clojure.core.async :as a]))
+;; @@
+
+;; **
+;;; # From The Experiments
+;;; 
+;;; ```
+;;; (def gdax-subscription (gdax/subscribe ["ETH-USD" "ETH-BTC" "BTC-USD"]))
+;;; 
+;;; (def feed (:feed gdax-subscription))
+;;; 
+;;; (def book (atom {}))
+;;; 
+;;; (defn add-entry [book {:keys [product_id order_id] :as entry}]
+;;;   (cond 
+;;;     (= "match" (:type entry)) (swap! book update-in [product_id :matches] #(conj % entry))
+;;;     :else      (swap! book update-in [product_id order_id] #(conj % entry))))
+;;; 
+;;; 
+;;; (a/go-loop 
+;;;   [x (a/<! feed)]
+;;;   (when x
+;;;     (add-entry book x)
+;;;     (recur (a/<! feed))))
+;;; ```
+;; **
+
+;; @@
+
+;; @@
+
+;; @@
+(defn start-realtime-orderbook 
+  [products & {:keys [] :as opt}]
+  (let [{:keys [feed stop] :as subscription} (gdax/subscribe products :buffer-size 1000)
+        book (atom {})
+        add-entry 
+        (fn 
+          [book {:keys [product_id order_id] :as entry}]
+          (cond
+            (= "match" (:type entry)) (swap! book update-in [product_id :matches] #(conj % entry))
+            :else (swap! book update-in [product_id order_id] #(conj % entry))))]
+    (a/go-loop 
+      [x (a/<! feed)]
+      (when x
+        (add-entry book x)
+        (recur (a/<! feed))))
+
+    {:book book 
+     :stop #(stop)}))
+
+;; @@
+
+;; @@
+(def ob (start-realtime-orderbook ["ETH-USD"]))
+;; @@
+
+;; @@
+(defprotocol IRealtimeOrderbook
+  (stop [this])
+  (get-orders [this product filter-fn]))
+
+(defrecord GDAXRealtimeOrderbook [env book]
+  IRealtimeOrderbook
+  (stop 
+    [this] 
+    ((:stop env)))
+  (get-orders 
+    [this product filter-fn]
+    (filter filter-fn (get @book product))))
+;; @@
+
+;; @@
+
+(defn create-realtime-orderbook 
+  [products & {:keys [] :as opt}]
+  (let [{:keys [feed stop] :as subscription} (gdax/subscribe products :buffer-size 1000)
+        book (atom {})
+        add-entry 
+        (fn 
+          [book {:keys [product_id order_id] :as entry}]
+          (cond
+            (= "match" (:type entry)) (swap! book update-in [product_id :matches] #(conj % entry))
+            :else (swap! book update-in [product_id order_id] #(conj % entry))))]
+
+    (a/go-loop 
+      [x (a/<! feed)]
+      (when x
+        (add-entry book x)
+        (recur (a/<! feed))))
+
+    (GDAXRealtimeOrderbook. {:stop #(stop)} book)))
+;; @@
+
+;; @@
+(def obook (create-realtime-orderbook ["ETH-USD"]))
+;; @@
+
+;; @@
+(defn get-open-orders
+  [book product]
+  (into {}
+        (get-orders obook
+                    product
+                    (fn [o]
+                      (= "open" (:type (first (val o))))))))
+;; @@
+
+;; @@
+(get-open-orders obook "ETH-USD")
+;; @@
+
+;; @@
+(-> @(:book ob) (get "ETH-USD") first reverse clojure.pprint/pprint)
+;; @@
+
+;; @@
+
+;; @@

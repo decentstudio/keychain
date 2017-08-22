@@ -1,0 +1,12 @@
+### 08/16/2017
+- Added order book calculations
+  - A (Get Ask Side)
+  - B (Get Bid Side)
+  - a (Get Current Ask)
+  - b (Get Current Bid)
+  - s (Get Current Spread)
+  - m (Get Current mid price)
+  - nbpt (Get Current Bid Side Depth For Price P)
+  - napt (Get Current Ask Side Depth For Price P)
+  - nbpt-profile (Get Current Bid Side Depth Profile)
+  - napt-profile (Get Current Ask Side Depth Profile)

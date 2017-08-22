@@ -195,9 +195,8 @@
   (log-fn [(now) :connected]))
 
 (defn on-close
-  [shutdown-fn log-fn ^Integer code ^String reason]
-  (log-fn [(now) :closed code reason])
-  (shutdown-fn))
+  [log-fn ^Integer code ^String reason]
+  (log-fn [(now) :closed code reason]))
 
 (defn on-error
   [log-fn ^java.lang.Throwable t]
@@ -213,15 +212,16 @@
         error   (a/chan)
         feed    (a/chan buffer)
         publish (fn [chan] #(a/put! chan %))
-        shutdown #(doseq [chan [feed close connect error]] (a/close! chan))
         socket (ws/connect "wss://ws-feed.gdax.com"
                            :on-connect (partial on-connect (publish connect))
-                           :on-close   (partial on-close shutdown (publish close))
+                           :on-close   (partial on-close (publish close))
                            :on-error   (partial on-error (publish error))
                            :on-receive (partial on-receive (publish feed)))
         _ (ws/send-msg socket (get-subscribe-event products))]
     {:feed feed
-     :errored error
-     :closed close
-     :connected connect
-     :close #(ws/close socket)}))
+     :error error
+     :close close
+     :connect connect
+     :stop (fn []
+            (ws/close socket)
+            (doseq [c [feed close connect error]] (a/close! c)))}))
