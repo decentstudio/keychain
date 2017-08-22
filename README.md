@@ -50,7 +50,7 @@ Example:
 #### Subscribe
 The default implementation uses a sliding buffer with a of size 1000. You may provide your own core.async buffer with the `:buffer` option.
 
-All message is a tuple where the first element is a string timestamp and the second is a type coerced, but unaltered, GDAX message.
+A message is a tuple where the first element is a string timestamp and the second is a type coerced, but unaltered, GDAX message.
 
 This function returns a map containing the following:
 
