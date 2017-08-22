@@ -40,10 +40,10 @@ Example:
 (get-product-order-book gdax product)
 
 ;; Level 2
-(get-product-order-book gdax :level 2)
+(get-product-order-book gdax product :level 2)
 
 ;; Level 3
-(get-product-order-book gdax :level 3)
+(get-product-order-book gdax product :level 3)
 ```
 
 ### Websockets Feed
