@@ -3,6 +3,11 @@ All notable changes to this project will be documented in this file. This change
 
 # [Unstable]
 
+### 08/24/17
+- Added get-trades for GDAX REST API
+- Allow url-fn option to GDAX `get-client`
+  - Reasoning: Default is live api, can supply function to choose something else.
+
 ### 08/21/17
 - Exposed websocket events through async channels
   - connected

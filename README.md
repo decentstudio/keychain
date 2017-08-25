@@ -46,6 +46,35 @@ Example:
 (get-product-order-book gdax product :level 3)
 ```
 
+#### Get Trades
+
+Returns a map containing the keys:
+- `:data`
+- `:pagination`
+
+The pagination key is a map containing:
+- `:before`
+- `:after`
+
+```clojure
+(def product "ETH-USD")
+
+;; Default request
+(get-trades gdax product)
+
+;; With Limit
+(get-trades gdax product :limit 10)
+
+;; With Before
+(get-trades gdax product :before "123")
+
+;; With After
+(get-trades gdax product :after "123")
+```
+
+
+
+
 ### Websockets Feed
 #### Subscribe
 The default implementation uses a sliding buffer with a of size 1000. You may provide your own core.async buffer with the `:buffer` option.

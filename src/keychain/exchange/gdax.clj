@@ -118,10 +118,32 @@
    404 "Not Found"
    500 "Internal Server Error – We had a problem with our server"})
 
+(defn get-before
+  [headers]
+  (get headers "CB-BEFORE"))
+
+(defn get-after
+  [headers]
+  (get headers "CB-AFTER"))
+
+(defn get-pagination
+  [headers]
+  {:pagination {:before (get-before headers)
+                :after (get-after headers)}})
+
+(defn paginated?
+  [headers]
+  (or (get-before headers)
+      (get-after headers)))
+
 (defn send-request
-  [{:keys [credentials] :as client} request & {:keys [debug]}]
+  [{:keys [credentials url] :as client} request & {:keys [debug]}]
   (try
-    (:body (http/request (->http (sign-request credentials request))))
+    (let [request (assoc request :url url)
+          {:keys [headers body]} (http/request (->http (sign-request credentials request)))]
+      (if-not (paginated? headers)
+        body
+        (merge {:data body} (get-pagination headers))))
     (catch ExceptionInfo e
       (let [{:keys [status body]} (ex-data e)]
         (when debug (clojure.pprint/pprint body))
@@ -132,18 +154,29 @@
 ;;;;;;;;;;;;;;;;;;
 ;;;; REST API ;;;;
 ;;;;;;;;;;;;;;;;;;
+(defn get-api-url [] "https://api.gdax.com")
+
 (defn get-client
-  [& {:keys [credential-fn] :or {credential-fn get-credentials}}]
-  {:credentials (credential-fn)})
+  [& {:keys [credential-fn url-fn] :or {credential-fn get-credentials
+                                        url-fn get-api-url}}]
+  {:credentials (credential-fn)
+   :url (url-fn)})
 
 (defn get-product-order-book
   [client product & {:keys [level] :or {level 1} :as params}]
   (send-request
     client
     {:method "GET"
-     :url "https://api.gdax.com"
      :path (format "/products/%s/book" product)
      :query-params params}))
+
+(defn get-trades
+ [client product & {:keys [before after limit] :as params}]
+ (send-request
+   client
+   {:method "GET"
+    :path (format "/products/%s/trades" product)
+    :query-params params}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Websocket API ;;;;
