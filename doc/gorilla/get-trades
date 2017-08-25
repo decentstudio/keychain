@@ -1,0 +1,48 @@
+;; gorilla-repl.fileformat = 1
+
+;; **
+;;; # Gorilla REPL
+;;; 
+;;; Welcome to gorilla :-)
+;;; 
+;;; Shift + enter evaluates code. Hit alt+g twice in quick succession or click the menu icon (upper-right corner) for more commands ...
+;;; 
+;;; It's a good habit to run each worksheet in its own namespace: feel free to use the declaration we've provided below if you'd like.
+;; **
+
+;; @@
+(ns harmonious-valley
+  (:require [gorilla-plot.core :as plot]
+            [keychain.exchange.gdax :as gdax]))
+;; @@
+
+;; @@
+(def client (gdax/get-client))
+;; @@
+
+;; @@
+client
+;; @@
+
+;; @@
+(defn get-trades
+  [client product & {:keys [before after limit] :as params}]
+  (gdax/send-request
+    client
+    {:method "GET"
+     :url "https://api.gdax.com"
+     :path (format "/products/%s/trades" product)
+     :query-params params}))
+;; @@
+
+;; @@
+(def trades (get-trades client "ETH-USD" :after 9731457))
+;; @@
+
+;; @@
+(:pagination trades)
+;; @@
+
+;; @@
+trades
+;; @@
