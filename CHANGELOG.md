@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file. This change
 
 # [Unstable]
 
+### 11/11/17
+- Modified the subscribe function parameter arguments.
+- Updated the subscription functionality to latest GDAX requirements.
+
 ### 08/24/17
 - Added get-trades for GDAX REST API
 - Allow url-fn option to GDAX `get-client`

@@ -183,8 +183,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn get-subscribe-event
-  [products]
-  (->json {:type "subscribe", :product_ids products}))
+  [products channels]
+  (->json {:type "subscribe", :product_ids products, :channels channels}))
 
 (defmulti parse-numbers
   (fn [entry] (-> entry
@@ -221,6 +221,10 @@
   [entry]
   (parse-and-merge-numbers entry [:new_size :old_size :price]))
 
+(defmethod parse-numbers :default
+  [entry]
+  entry)
+
 (defn now [] (str (java.time.Instant/now)))
 
 (defn on-connect
@@ -240,7 +244,16 @@
   [log-fn ^String message]
   (log-fn [(now) (-> message json->edn parse-numbers)]))
 
-(defn subscribe [products & {:keys [buffer] :or {buffer (a/sliding-buffer 1000)}}]
+(def default-channels ["full" "heartbeat"])
+
+(def default-buffer #(a/sliding-buffer 1000))
+
+(defn subscribe [{:keys [products
+                         channels
+                         buffer]
+                  :or {channels default-channels
+                       buffer (default-buffer)}}]
+
   (let [connect (a/chan)
         close   (a/chan)
         error   (a/chan)
@@ -252,7 +265,8 @@
                            :on-close   (partial on-close shutdown (publish close))
                            :on-error   (partial on-error (publish error))
                            :on-receive (partial on-receive (publish feed)))
-        _ (ws/send-msg socket (get-subscribe-event products))]
+        _ (ws/send-msg socket (get-subscribe-event products channels))]
+
     {:feed feed
      :errored error
      :closed close

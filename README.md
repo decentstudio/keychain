@@ -81,6 +81,8 @@ The default implementation uses a sliding buffer with a of size 1000. You may pr
 
 A message is a tuple where the first element is a string timestamp and the second is a type coerced, but unaltered, GDAX message.
 
+By default the channels used are `heartbeat` and `full`. Custom channels can be provided as a vector of channel names only at this time to the subscribe arg map.
+
 This function returns a map containing the following:
 
 ##### :feed
@@ -103,7 +105,7 @@ A zero argument function that will close the websocket subscription and all asso
 
 (def products ["ETH-USD" "ETH-BTC"])
 
-(def subscription (subscribe products))
+(def subscription (subscribe {:products products}))
 
 (poll! (:feed subscription))
 ```
